@@ -17,7 +17,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if(type !== 'password') continue;
     if(autocomplete !== 'current-password') continue;
 
-    inputs[i].value = password;
+    setInputValue(inputs[i], password);
     passwordFilled = true;
     break;
   }
@@ -26,10 +26,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   for(let i = 0; i < inputs.length; i++){
     let type = inputs[i].type?.toLowerCase();
     let name = inputs[i].name?.toLowerCase();
+    let id = inputs[i].id?.toLowerCase();
     if(!(type === 'text' || type === 'email')) continue;
-    if(!(name.includes('user') || name.includes('email'))) continue;
+    if(!(name.includes('user') || name.includes('email') || name.includes('login'))) continue;
+    if(name.includes('fake') || id.includes('fake')) continue;
 
-    inputs[i].value = username;
+    setInputValue(inputs[i], username);
     usernameFilled = true;
     break;
   }
@@ -42,7 +44,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     let type = inputs[i].type?.toLowerCase();
     if(type !== 'password') continue;
 
-    inputs[i].value = password;
+    setInputValue(inputs[i], password);
     passwordFilled = true;
     break;
   }
@@ -54,7 +56,41 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if(!(type === 'text' || type === 'email')) continue;
 
     inputs[i].value = username;
-    usernameFilled = true;
+    setInputValue(inputs[i], username);
     break;
   }
 });
+
+// Will set the value of the given input element to the given value.
+// Various techniques are used to simulate real user input as closely
+// as possible, since naively setting the value may remain unnoticed
+// or be rejected by some browsers or frameworks on websites (e.g. React).
+function setInputValue(input, value) {
+  input.focus();
+
+  const setter =
+    Object.getOwnPropertyDescriptor(
+      Object.getPrototypeOf(input),
+      "value"
+    )?.set ||
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value"
+    )?.set;
+
+  setter
+    ? setter.call(input, value)
+    : (input.value = value);
+
+  input.dispatchEvent(
+    new InputEvent("input", {
+      bubbles: true,
+      inputType: "insertText",
+      data: value,
+    })
+  );
+
+  input.blur();
+
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
