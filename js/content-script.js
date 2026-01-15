@@ -66,8 +66,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // as possible, since naively setting the value may remain unnoticed
 // or be rejected by some browsers or frameworks on websites (e.g. React).
 function setInputValue(input, value) {
+
+  // Focus the input element
   input.focus();
 
+  // Get the input element's native setter, if possible.
   const setter =
     Object.getOwnPropertyDescriptor(
       Object.getPrototypeOf(input),
@@ -78,19 +81,28 @@ function setInputValue(input, value) {
       "value"
     )?.set;
 
+  // Set value using native setter, if possible,
+  // otherwise set directly.
   setter
     ? setter.call(input, value)
     : (input.value = value);
 
-  input.dispatchEvent(
-    new InputEvent("input", {
+  // Dispatch an "input" event on the input element.
+  let event;
+  try {
+    event = new InputEvent("input", {
       bubbles: true,
       inputType: "insertText",
       data: value,
-    })
-  );
+    });
+  } catch {
+    event = new Event("input", { bubbles: true });
+  }
+  input.dispatchEvent(event);
 
+  // Remove focus
   input.blur();
 
+  // Dispatch a "change" event on the input element.
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
